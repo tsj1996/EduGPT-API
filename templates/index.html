@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Syllabus Generator → PDF</title>
+  <style>
+    :root{--bg:#0b1020;--card:#0f172a;--ink:#e5e7eb;--muted:#94a3b8;--btn:#3b82f6}
+    body{font-family:system-ui,Segoe UI,Roboto;background:var(--bg);color:var(--ink);margin:0}
+    .wrap{max-width:980px;margin:32px auto;padding:0 16px}
+    h1{margin:0 0 12px}
+    .note{color:var(--muted);margin-bottom:20px}
+    form{background:var(--card);border:1px solid #1f2a44;border-radius:16px;padding:16px}
+    label{display:block;margin-top:10px;font-weight:600}
+    input,textarea{width:100%;padding:10px;border:1px solid #233154;background:#0b1530;color:var(--ink);border-radius:10px;margin-top:6px}
+    .grid{display:grid;gap:16px;grid-template-columns:1fr}
+    @media (min-width:900px){.grid{grid-template-columns:1fr 1fr}}
+    button{margin-top:16px;padding:10px 16px;border:0;border-radius:10px;cursor:pointer;background:var(--btn);color:white}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Syllabus Generator</h1>
+    <p class="note">Fill the form and download a formatted PDF.</p>
+
+    <!-- standard form post that opens PDF in a new tab -->
+    <form id="f" action="/generate-pdf" method="POST" target="_blank">
+      <div class="grid">
+        <div>
+          <label>Course title</label>
+          <input name="title" required />
+        </div>
+        <div>
+          <label>Audience / level</label>
+          <input name="level" placeholder="Undergrad / Graduate" />
+        </div>
+        <div>
+          <label>Duration (weeks)</label>
+          <input name="weeks" type="number" value="12" />
+        </div>
+        <div>
+          <label>Meetings per week</label>
+          <input name="meetings" type="number" value="2" />
+        </div>
+        <div>
+          <label>Hours per meeting</label>
+          <input name="hours" type="number" step="0.5" value="1.5" />
+        </div>
+        <div>
+          <label>Prerequisites</label>
+          <input name="prereqs" />
+        </div>
+      </div>
+
+      <label>Learning goals</label>
+      <textarea name="goals" rows="3"></textarea>
+
+      <label>Constraints</label>
+      <textarea name="constraints" rows="3" placeholder="project-first, flipped, minimal reading"></textarea>
+
+      <button type="submit">Generate PDF</button>
+    </form>
+  </div>
+</body>
+</html>
+
