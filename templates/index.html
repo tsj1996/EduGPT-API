@@ -5,63 +5,53 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>PBL Project Builder</title>
   <style>
-    body { font-family: system-ui, Arial, sans-serif; max-width: 920px; margin: 32px auto; padding: 0 16px; }
-    h1 { margin-bottom: 8px; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Arial, sans-serif; max-width: 980px; margin: 32px auto; padding: 0 16px; color: #1f2937; }
+    h1 { margin-bottom: 8px; font-size: 28px; color: #111827; }
     .row { display: grid; grid-template-columns: 1fr 2fr; gap: 12px; margin: 10px 0; }
-    textarea, input, button { font: inherit; padding: 8px; }
-    .modules { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap: 6px; }
-    .out { white-space: pre-wrap; border: 1px solid #ddd; padding: 12px; border-radius: 6px; min-height: 220px; background: #fafafa; }
-    .muted { color: #666; font-size: 0.9em; }
-    .actions { display: flex; gap: 10px; align-items: center; }
+    textarea, input, button { font: inherit; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; }
+    input:focus, textarea:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,.15); }
+    .muted { color: #6b7280; font-size: 0.9em; }
+    .actions { display: flex; gap: 10px; align-items: center; margin-top: 8px; }
+    .out { border: 1px solid #e5e7eb; background: #f9fafb; padding: 14px; border-radius: 10px; min-height: 240px; overflow: auto; }
+    .out h2 { margin-top: 0.6em; }
+    .pill { display: inline-block; padding: 3px 8px; border-radius: 999px; background: #eef2ff; color: #4338ca; font-size: 12px; margin-right: 6px; }
+    .grid-1 { display: grid; grid-template-columns: 1fr; gap: 8px; }
   </style>
 </head>
 <body>
   <h1>PBL Project Builder</h1>
-  <p class="muted">Provide <strong>Title</strong> and <strong>Topic/Subject</strong>. Everything else has smart defaults (edit if you like).</p>
+  <p class="muted">Enter <strong>Title</strong> and <strong>Topic</strong>. Other fields are optional and have smart defaults. PDF will emphasize prompt details and include relevant equations.</p>
 
   <div class="row">
     <label>Title *</label>
-    <input id="title" placeholder="e.g., Sustainable City Studio" required />
+    <input id="title" placeholder="e.g., Sustainable Energy Design Brief" required />
   </div>
 
   <div class="row">
     <label>Topic / Subject *</label>
-    <input id="topic" placeholder="e.g., Environmental Science" required />
+    <input id="topic" placeholder="e.g., Environmental Science / Physics" required />
   </div>
 
   <div class="row">
     <label>Grade/Level</label>
-    <input id="grade" placeholder="Grade 9 (default)" />
+    <input id="grade" placeholder="Default: Grade 10" />
   </div>
 
   <div class="row">
     <label>Duration (weeks)</label>
-    <input id="duration_weeks" placeholder="4 (default)" />
+    <input id="duration_weeks" placeholder="Default: 4" />
   </div>
 
   <div class="row">
     <label>Driving Question</label>
     <textarea id="driving_question" rows="2"
-      placeholder="How might we design a solution that improves our community’s sustainability?"></textarea>
+      placeholder="Default: How might we design and validate a solution that improves a real-world system?"></textarea>
   </div>
 
   <div class="row">
     <label>Scenario</label>
     <textarea id="scenario" rows="2"
-      placeholder="Partner with a local stakeholder to gather authentic constraints and feedback."></textarea>
-  </div>
-
-  <div class="row">
-    <label>Modules</label>
-    <div class="modules" id="modules">
-      <label><input type="checkbox" value="Overview" checked /> Overview</label>
-      <label><input type="checkbox" value="Learning Objectives" checked /> Learning Objectives</label>
-      <label><input type="checkbox" value="Timeline & Milestones" checked /> Timeline &amp; Milestones</label>
-      <label><input type="checkbox" value="Activities & Procedures" checked /> Activities &amp; Procedures</label>
-      <label><input type="checkbox" value="Assessment Rubric" checked /> Assessment Rubric</label>
-      <label><input type="checkbox" value="Deliverables" checked /> Deliverables</label>
-      <label><input type="checkbox" value="Materials" checked /> Materials</label>
-    </div>
+      placeholder="Default: Partner with a relevant stakeholder to gather constraints and feedback."></textarea>
   </div>
 
   <div class="row" style="grid-template-columns: 1fr;">
@@ -72,21 +62,17 @@
     </div>
   </div>
 
-  <h3>Output</h3>
-  <div id="out" class="out">Fill the required fields and click “Generate”.</div>
+  <h3>Preview (HTML fragment from model)</h3>
+  <div id="out" class="out">Output will appear here…</div>
 
   <script>
     const el = (id) => document.getElementById(id);
-
-    function selectedModules() {
-      return Array.from(document.querySelectorAll("#modules input:checked")).map(c => c.value);
-    }
 
     document.getElementById("go").addEventListener("click", async () => {
       const title = el("title").value.trim();
       const topic = el("topic").value.trim();
       if (!title || !topic) {
-        el("status").textContent = "Please enter Title and Topic.";
+        el("status").textContent = "Please provide Title and Topic.";
         return;
       }
 
@@ -96,12 +82,11 @@
         grade: el("grade").value,
         duration_weeks: el("duration_weeks").value,
         driving_question: el("driving_question").value,
-        scenario: el("scenario").value,
-        modules: selectedModules()
+        scenario: el("scenario").value
       };
 
       el("status").textContent = "Generating…";
-      el("out").textContent = "Generating…";
+      el("out").innerHTML = "Generating…";
       el("dl").style.display = "none";
       el("dl").removeAttribute("href");
 
@@ -114,7 +99,8 @@
         const data = await resp.json();
         if (!data.ok) throw new Error(data.error || "Unknown error");
 
-        el("out").textContent = data.result;
+        // Show the HTML fragment for quick review
+        el("out").innerHTML = data.result_html;
         el("status").textContent = "Done.";
         if (data.pdf_id) {
           el("dl").href = "/download/" + data.pdf_id;
