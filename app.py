@@ -13,7 +13,7 @@ except Exception:
 # ---- Azure OpenAI config from environment ----
 ENDPOINT   = os.environ["AZURE_OPENAI_ENDPOINT"]          # e.g. https://<resource>.openai.azure.com/
 API_KEY    = os.environ["AZURE_OPENAI_API_KEY"]           # Key1/Key2
-API_VER    = os.environ.get("AZURE_OPENAI_API_VERSION", "2024-10-21")
+API_VER    = os.environ["AZURE_OPENAI_API_VERSION"]
 DEPLOYMENT = os.environ["AZURE_OPENAI_DEPLOYMENT"]        # your deployment name (e.g. gpt-4o-mini)
 
 client = AzureOpenAI(azure_endpoint=ENDPOINT, api_key=API_KEY, api_version=API_VER)
