@@ -3,64 +3,122 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Syllabus Generator → PDF</title>
+  <title>PBL Project Builder (PDF-guided)</title>
   <style>
-    :root{--bg:#0b1020;--card:#0f172a;--ink:#e5e7eb;--muted:#94a3b8;--btn:#3b82f6}
-    body{font-family:system-ui,Segoe UI,Roboto;background:var(--bg);color:var(--ink);margin:0}
-    .wrap{max-width:980px;margin:32px auto;padding:0 16px}
-    h1{margin:0 0 12px}
-    .note{color:var(--muted);margin-bottom:20px}
-    form{background:var(--card);border:1px solid #1f2a44;border-radius:16px;padding:16px}
-    label{display:block;margin-top:10px;font-weight:600}
-    input,textarea{width:100%;padding:10px;border:1px solid #233154;background:#0b1530;color:var(--ink);border-radius:10px;margin-top:6px}
-    .grid{display:grid;gap:16px;grid-template-columns:1fr}
-    @media (min-width:900px){.grid{grid-template-columns:1fr 1fr}}
-    button{margin-top:16px;padding:10px 16px;border:0;border-radius:10px;cursor:pointer;background:var(--btn);color:white}
+    body { font-family: system-ui, Arial, sans-serif; max-width: 920px; margin: 32px auto; padding: 0 16px; }
+    h1 { margin-bottom: 8px; }
+    .row { display: grid; grid-template-columns: 1fr 2fr; gap: 12px; margin: 10px 0; }
+    textarea, input, button, select { font: inherit; padding: 8px; }
+    .modules { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap: 6px; }
+    .out { white-space: pre-wrap; border: 1px solid #ddd; padding: 12px; border-radius: 6px; min-height: 220px; background: #fafafa; }
+    .muted { color: #666; font-size: 0.9em; }
+    .actions { display: flex; gap: 10px; align-items: center; }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>Syllabus Generator</h1>
-    <p class="note">Fill the form and download a formatted PDF.</p>
+  <h1>PBL Project Builder</h1>
+  <p class="muted">
+    Upload an <strong>example PDF</strong> (assignment brief / project description). The AI will
+    <em>match its structure & tone</em> while creating a fresh PBL plan (you can keep the same topic or let it be random).
+  </p>
 
-    <!-- standard form post that opens PDF in a new tab -->
-    <form id="f" action="/generate-pdf" method="POST" target="_blank">
-      <div class="grid">
-        <div>
-          <label>Course title</label>
-          <input name="title" required />
-        </div>
-        <div>
-          <label>Audience / level</label>
-          <input name="level" placeholder="Undergrad / Graduate" />
-        </div>
-        <div>
-          <label>Duration (weeks)</label>
-          <input name="weeks" type="number" value="12" />
-        </div>
-        <div>
-          <label>Meetings per week</label>
-          <input name="meetings" type="number" value="2" />
-        </div>
-        <div>
-          <label>Hours per meeting</label>
-          <input name="hours" type="number" step="0.5" value="1.5" />
-        </div>
-        <div>
-          <label>Prerequisites</label>
-          <input name="prereqs" />
-        </div>
+  <form id="frm" enctype="multipart/form-data" class="form">
+    <div class="row">
+      <label>Topic Mode</label>
+      <select id="topic_mode" name="topic_mode">
+        <option value="choose">Use my subject/topic</option>
+        <option value="random">Let AI choose a new topic</option>
+      </select>
+    </div>
+
+    <div class="row">
+      <label>Subject / Topic</label>
+      <input id="subject" name="subject" placeholder="e.g., Sustainable Cities" />
+    </div>
+
+    <div class="row">
+      <label>Grade/Level</label>
+      <input id="grade" name="grade" placeholder="e.g., Grade 9" />
+    </div>
+
+    <div class="row">
+      <label>Duration (weeks)</label>
+      <input id="duration_weeks" name="duration_weeks" placeholder="e.g., 4" />
+    </div>
+
+    <div class="row">
+      <label>Driving Question</label>
+      <textarea id="driving_question" name="driving_question" rows="2"
+        placeholder="e.g., How might we redesign our neighborhood to reduce heat-island effects?"></textarea>
+    </div>
+
+    <div class="row">
+      <label>Scenario (optional)</label>
+      <textarea id="scenario" name="scenario" rows="2"
+        placeholder="e.g., Partner with city planning office to propose a micro-park."></textarea>
+    </div>
+
+    <div class="row">
+      <label>Example PDF (optional)</label>
+      <input id="example_pdf" name="example_pdf" type="file" accept="application/pdf" />
+    </div>
+
+    <div class="row">
+      <label>Modules</label>
+      <div class="modules" id="modules">
+        <label><input type="checkbox" name="modules" value="Overview" checked /> Overview</label>
+        <label><input type="checkbox" name="modules" value="Learning Objectives" checked /> Learning Objectives</label>
+        <label><input type="checkbox" name="modules" value="Timeline & Milestones" checked /> Timeline &amp; Milestones</label>
+        <label><input type="checkbox" name="modules" value="Activities & Procedures" checked /> Activities &amp; Procedures</label>
+        <label><input type="checkbox" name="modules" value="Assessment Rubric" checked /> Assessment Rubric</label>
+        <label><input type="checkbox" name="modules" value="Deliverables" checked /> Deliverables</label>
+        <label><input type="checkbox" name="modules" value="Materials" checked /> Materials</label>
       </div>
+    </div>
 
-      <label>Learning goals</label>
-      <textarea name="goals" rows="3"></textarea>
+    <div class="row" style="grid-template-columns: 1fr;">
+      <div class="actions">
+        <button id="go" type="submit">Generate</button>
+        <a id="dl" href="#" style="display:none;">Download PDF</a>
+        <span id="status" class="muted"></span>
+      </div>
+    </div>
+  </form>
 
-      <label>Constraints</label>
-      <textarea name="constraints" rows="3" placeholder="project-first, flipped, minimal reading"></textarea>
+  <h3>Output</h3>
+  <div id="out" class="out">Fill the fields (and optionally upload a PDF), then click “Generate”.</div>
 
-      <button type="submit">Generate PDF</button>
-    </form>
-  </div>
+  <script>
+    const el = (id) => document.getElementById(id);
+    const form = document.getElementById("frm");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const fd = new FormData(form);
+      el("status").textContent = "Generating…";
+      el("out").textContent = "Generating…";
+      el("dl").style.display = "none";
+      el("dl").removeAttribute("href");
+
+      try {
+        const resp = await fetch("/generate", { method: "POST", body: fd });
+        const data = await resp.json();
+        if (!data.ok) throw new Error(data.error || "Unknown error");
+
+        el("out").textContent = data.result;
+        el("status").textContent = "Done.";
+        if (data.pdf_id) {
+          el("dl").href = "/download/" + data.pdf_id;
+          el("dl").style.display = "inline-block";
+          el("dl").textContent = "Download PDF";
+        }
+      } catch (err) {
+        el("status").textContent = "Error";
+        el("out").textContent = "Error: " + err.message;
+      }
+    });
+  </script>
 </body>
 </html>
 
