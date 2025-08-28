@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>PBL Project Builder (PDF-guided)</title>
+  <title>PBL Project Builder</title>
   <style>
     body { font-family: system-ui, Arial, sans-serif; max-width: 920px; margin: 32px auto; padding: 0 16px; }
     h1 { margin-bottom: 8px; }
     .row { display: grid; grid-template-columns: 1fr 2fr; gap: 12px; margin: 10px 0; }
-    textarea, input, button, select { font: inherit; padding: 8px; }
+    textarea, input, button { font: inherit; padding: 8px; }
     .modules { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap: 6px; }
     .out { white-space: pre-wrap; border: 1px solid #ddd; padding: 12px; border-radius: 6px; min-height: 220px; background: #fafafa; }
     .muted { color: #666; font-size: 0.9em; }
@@ -17,92 +17,100 @@
 </head>
 <body>
   <h1>PBL Project Builder</h1>
-  <p class="muted">
-    Upload an <strong>example PDF</strong> (assignment brief / project description). The AI will
-    <em>match its structure & tone</em> while creating a fresh PBL plan (you can keep the same topic or let it be random).
-  </p>
+  <p class="muted">Provide <strong>Title</strong> and <strong>Topic/Subject</strong>. Everything else has smart defaults (edit if you like).</p>
 
-  <form id="frm" enctype="multipart/form-data" class="form">
-    <div class="row">
-      <label>Topic Mode</label>
-      <select id="topic_mode" name="topic_mode">
-        <option value="choose">Use my subject/topic</option>
-        <option value="random">Let AI choose a new topic</option>
-      </select>
-    </div>
+  <div class="row">
+    <label>Title *</label>
+    <input id="title" placeholder="e.g., Sustainable City Studio" required />
+  </div>
 
-    <div class="row">
-      <label>Subject / Topic</label>
-      <input id="subject" name="subject" placeholder="e.g., Sustainable Cities" />
-    </div>
+  <div class="row">
+    <label>Topic / Subject *</label>
+    <input id="topic" placeholder="e.g., Environmental Science" required />
+  </div>
 
-    <div class="row">
-      <label>Grade/Level</label>
-      <input id="grade" name="grade" placeholder="e.g., Grade 9" />
-    </div>
+  <div class="row">
+    <label>Grade/Level</label>
+    <input id="grade" placeholder="Grade 9 (default)" />
+  </div>
 
-    <div class="row">
-      <label>Duration (weeks)</label>
-      <input id="duration_weeks" name="duration_weeks" placeholder="e.g., 4" />
-    </div>
+  <div class="row">
+    <label>Duration (weeks)</label>
+    <input id="duration_weeks" placeholder="4 (default)" />
+  </div>
 
-    <div class="row">
-      <label>Driving Question</label>
-      <textarea id="driving_question" name="driving_question" rows="2"
-        placeholder="e.g., How might we redesign our neighborhood to reduce heat-island effects?"></textarea>
-    </div>
+  <div class="row">
+    <label>Driving Question</label>
+    <textarea id="driving_question" rows="2"
+      placeholder="How might we design a solution that improves our community’s sustainability?"></textarea>
+  </div>
 
-    <div class="row">
-      <label>Scenario (optional)</label>
-      <textarea id="scenario" name="scenario" rows="2"
-        placeholder="e.g., Partner with city planning office to propose a micro-park."></textarea>
-    </div>
+  <div class="row">
+    <label>Scenario</label>
+    <textarea id="scenario" rows="2"
+      placeholder="Partner with a local stakeholder to gather authentic constraints and feedback."></textarea>
+  </div>
 
-    <div class="row">
-      <label>Example PDF (optional)</label>
-      <input id="example_pdf" name="example_pdf" type="file" accept="application/pdf" />
+  <div class="row">
+    <label>Modules</label>
+    <div class="modules" id="modules">
+      <label><input type="checkbox" value="Overview" checked /> Overview</label>
+      <label><input type="checkbox" value="Learning Objectives" checked /> Learning Objectives</label>
+      <label><input type="checkbox" value="Timeline & Milestones" checked /> Timeline &amp; Milestones</label>
+      <label><input type="checkbox" value="Activities & Procedures" checked /> Activities &amp; Procedures</label>
+      <label><input type="checkbox" value="Assessment Rubric" checked /> Assessment Rubric</label>
+      <label><input type="checkbox" value="Deliverables" checked /> Deliverables</label>
+      <label><input type="checkbox" value="Materials" checked /> Materials</label>
     </div>
+  </div>
 
-    <div class="row">
-      <label>Modules</label>
-      <div class="modules" id="modules">
-        <label><input type="checkbox" name="modules" value="Overview" checked /> Overview</label>
-        <label><input type="checkbox" name="modules" value="Learning Objectives" checked /> Learning Objectives</label>
-        <label><input type="checkbox" name="modules" value="Timeline & Milestones" checked /> Timeline &amp; Milestones</label>
-        <label><input type="checkbox" name="modules" value="Activities & Procedures" checked /> Activities &amp; Procedures</label>
-        <label><input type="checkbox" name="modules" value="Assessment Rubric" checked /> Assessment Rubric</label>
-        <label><input type="checkbox" name="modules" value="Deliverables" checked /> Deliverables</label>
-        <label><input type="checkbox" name="modules" value="Materials" checked /> Materials</label>
-      </div>
+  <div class="row" style="grid-template-columns: 1fr;">
+    <div class="actions">
+      <button id="go">Generate</button>
+      <a id="dl" href="#" style="display:none;">Download PDF</a>
+      <span id="status" class="muted"></span>
     </div>
-
-    <div class="row" style="grid-template-columns: 1fr;">
-      <div class="actions">
-        <button id="go" type="submit">Generate</button>
-        <a id="dl" href="#" style="display:none;">Download PDF</a>
-        <span id="status" class="muted"></span>
-      </div>
-    </div>
-  </form>
+  </div>
 
   <h3>Output</h3>
-  <div id="out" class="out">Fill the fields (and optionally upload a PDF), then click “Generate”.</div>
+  <div id="out" class="out">Fill the required fields and click “Generate”.</div>
 
   <script>
     const el = (id) => document.getElementById(id);
-    const form = document.getElementById("frm");
 
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
+    function selectedModules() {
+      return Array.from(document.querySelectorAll("#modules input:checked")).map(c => c.value);
+    }
 
-      const fd = new FormData(form);
+    document.getElementById("go").addEventListener("click", async () => {
+      const title = el("title").value.trim();
+      const topic = el("topic").value.trim();
+      if (!title || !topic) {
+        el("status").textContent = "Please enter Title and Topic.";
+        return;
+      }
+
+      const payload = {
+        title,
+        topic,
+        grade: el("grade").value,
+        duration_weeks: el("duration_weeks").value,
+        driving_question: el("driving_question").value,
+        scenario: el("scenario").value,
+        modules: selectedModules()
+      };
+
       el("status").textContent = "Generating…";
       el("out").textContent = "Generating…";
       el("dl").style.display = "none";
       el("dl").removeAttribute("href");
 
       try {
-        const resp = await fetch("/generate", { method: "POST", body: fd });
+        const resp = await fetch("/generate", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload)
+        });
         const data = await resp.json();
         if (!data.ok) throw new Error(data.error || "Unknown error");
 

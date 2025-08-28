@@ -10,46 +10,54 @@ except Exception:
     pass
 
 # ---- Azure OpenAI config from environment ----
-ENDPOINT   = os.environ["AZURE_OPENAI_ENDPOINT"]          # e.g. https://<your-resource>.openai.azure.com/
+ENDPOINT   = os.environ["AZURE_OPENAI_ENDPOINT"]          # e.g., https://<resource>.openai.azure.com/
 API_KEY    = os.environ["AZURE_OPENAI_API_KEY"]
 API_VER    = os.environ.get("AZURE_OPENAI_API_VERSION", "2024-10-21")
-DEPLOYMENT = os.environ["AZURE_OPENAI_DEPLOYMENT"]        # your deployment name (e.g. gpt-4o-mini)
+DEPLOYMENT = os.environ["AZURE_OPENAI_DEPLOYMENT"]        # your deployment name (gpt-4o-mini or similar)
 
 client = AzureOpenAI(api_key=API_KEY, api_version=API_VER, azure_endpoint=ENDPOINT)
 
 # PDF deps
-from PyPDF2 import PdfReader
 from xhtml2pdf import pisa
 from markupsafe import escape
 
 app = Flask(__name__)
-
-# In-memory store of generated PDFs (simple demo)
 GENERATED = {}  # id -> bytes
 
 
-def extract_pdf_text(file_stream, max_chars=12000):
-    """Return lightly-cleaned text from an uploaded PDF (cap to keep prompt small)."""
-    try:
-        reader = PdfReader(file_stream)
-        texts = []
-        for page in reader.pages:
-            t = page.extract_text() or ""
-            texts.append(t)
-        raw = "\n".join(texts)
-        # light cleanup
-        raw = re.sub(r"[ \t]+\n", "\n", raw)
-        raw = re.sub(r"\n{3,}", "\n\n", raw)
-        return raw[:max_chars]
-    except Exception:
-        return ""
-
-
 def html_to_pdf_bytes(html: str) -> bytes:
-    result = io.BytesIO()
-    pisa.CreatePDF(io.StringIO(html), dest=result)
-    result.seek(0)
-    return result.read()
+    buf = io.BytesIO()
+    pisa.CreatePDF(io.StringIO(html), dest=buf)
+    buf.seek(0)
+    return buf.read()
+
+
+# --------- Defaults (used if user leaves fields blank) ----------
+DEFAULTS = {
+    "grade": "Grade 9",
+    "duration_weeks": "4",
+    "driving_question": "How might we design a solution that improves our community’s sustainability?",
+    "scenario": "Partner with a local stakeholder to gather authentic constraints and feedback.",
+    "modules": [
+        "Overview",
+        "Learning Objectives",
+        "Timeline & Milestones",
+        "Activities & Procedures",
+        "Assessment Rubric",
+        "Deliverables",
+        "Materials"
+    ],
+    # short PBL rules/guardrails used by the prompt
+    "pbl_rules": (
+        "- Authentic problem with real audience\n"
+        "- Student voice/choice where possible\n"
+        "- Inquiry & research → iteration → reflection\n"
+        "- Explicit public product with rubric\n"
+        "- Milestones aligned to timeline; checkpoint evidence\n"
+        "- Differentiation/UDL accommodations\n"
+        "- Academic standards and success criteria"
+    )
+}
 
 
 @app.route("/", methods=["GET"])
@@ -59,93 +67,62 @@ def index():
 
 @app.route("/generate", methods=["POST"])
 def generate():
-    """
-    JSON payload when using fetch(); FormData when submitted via form.
-    Supports optional PDF 'example' upload to match structure/voice.
-    """
-    # Detect multipart/form-data (file upload) OR JSON
-    example_text = ""
-    if request.content_type and "multipart/form-data" in request.content_type:
-        # Read simple fields
-        subject          = (request.form.get("subject") or "").strip()
-        grade            = (request.form.get("grade") or "").strip()
-        duration_weeks   = (request.form.get("duration_weeks") or "").strip()
-        driving_question = (request.form.get("driving_question") or "").strip()
-        scenario         = (request.form.get("scenario") or "").strip()
-        topic_mode       = (request.form.get("topic_mode") or "choose").strip()  # 'choose' or 'random'
-        modules          = request.form.getlist("modules")
-        # Example PDF
-        up = request.files.get("example_pdf")
-        if up and up.filename.lower().endswith(".pdf"):
-            example_text = extract_pdf_text(up.stream)
-    else:
-        data = request.get_json(force=True)
-        subject          = (data.get("subject") or "").strip()
-        grade            = (data.get("grade") or "").strip()
-        duration_weeks   = (data.get("duration_weeks") or "").strip()
-        driving_question = (data.get("driving_question") or "").strip()
-        scenario         = (data.get("scenario") or "").strip()
-        topic_mode       = (data.get("topic_mode") or "choose").strip()
-        modules          = data.get("modules") or []
+    data = request.get_json(force=True)
 
-    # sensible defaults
-    if not modules:
-        modules = [
-            "Overview",
-            "Learning Objectives",
-            "Timeline & Milestones",
-            "Activities & Procedures",
-            "Assessment Rubric",
-            "Deliverables",
-            "Materials"
-        ]
+    # ----- Mandatory -----
+    title  = (data.get("title") or "").strip()
+    topic  = (data.get("topic") or "").strip()
+    if not title or not topic:
+        return jsonify({"ok": False, "error": "Title and Topic are required."}), 400
 
-    # If user wants random topic, let the model pick a fresh theme BUT keep structure consistent
-    topic_line = (
-        f"Subject/Topic: {subject}"
-        if topic_mode == "choose" and subject
-        else "Subject/Topic: (choose a creative, age-appropriate theme that fits the grade level)"
-    )
+    # ----- Optional with defaults -----
+    grade            = (data.get("grade") or DEFAULTS["grade"]).strip()
+    duration_weeks   = (data.get("duration_weeks") or DEFAULTS["duration_weeks"]).strip()
+    driving_question = (data.get("driving_question") or DEFAULTS["driving_question"]).strip()
+    scenario         = (data.get("scenario") or DEFAULTS["scenario"]).strip()
+    modules          = data.get("modules") or DEFAULTS["modules"]
+    pbl_rules        = DEFAULTS["pbl_rules"]
 
-    # Build the mimic prompt using the example text (if provided)
-    style_block = ""
-    if example_text.strip():
-        style_block = (
-            "-----\n"
-            "STYLE & STRUCTURE EXEMPLAR (analyze and imitate headings, sections order, tone, "
-            "level of specificity, and formatting—not the content itself):\n"
-            f"{example_text}\n"
-            "-----\n"
-            "Imitate the structure/voice/section formatting from the exemplar above, but write original content."
-        )
-
+    # ----- Prompt (imitate assignment-brief style; follow PBL rules) -----
     system_prompt = (
         "You are a precise Project-Based Learning (PBL) plan writer. "
-        "Match the provided exemplar's section structure, headings style, and professional tone when an exemplar is given. "
-        "Return ONLY the requested modules in the given order. "
-        "Be classroom-ready, concise, and use numbered steps where appropriate. "
-        "For rubrics, give 4 clear levels (4=Exceeds, 3=Meets, 2=Developing, 1=Beginning) with short descriptors."
+        "Write a teacher-ready assignment brief that mirrors a professional syllabus/assignment sheet: "
+        "clear headings, concise bullets, numbered steps, legible rubric, and a milestone timeline. "
+        "Return ONLY the requested modules, in the given order, with those exact headings. "
+        "Use 4-level analytic rubrics (4=Exceeds, 3=Meets, 2=Developing, 1=Beginning) with short descriptors. "
+        "Incorporate the provided inputs verbatim where appropriate."
+    )
+
+    # This block nudges the structure/tone toward a classic project description brief (cover, objectives, deliverables, etc.).
+    exemplar_style = (
+        "Match the tone/structure of a formal course project brief: objective, requirements, "
+        "deliverables, professional tone, concise formatting, actionable lists, and clear due items."
     )
 
     user_brief = f"""
-PBL Builder Brief
-- {topic_line}
+PROJECT BRIEF INPUTS
+- Title: {title}
+- Topic/Subject: {topic}
 - Grade/Level: {grade}
 - Duration: {duration_weeks} weeks
 - Driving Question: {driving_question}
-- Real-World Scenario/Client (optional): {scenario}
+- Scenario: {scenario}
 
-Required Output Modules (HEADINGS must match exactly, and appear in this order):
+REQUIRED OUTPUT MODULES (use these exact headings, in this order):
 {chr(10).join(f"- {m}" for m in modules)}
 
-Formatting Rules
-- Start each module with a clear heading identical to its name.
-- Use bullets and numbered steps for procedures.
-- Include a milestone schedule aligned to {duration_weeks} weeks.
-- Keep tone professional and teacher-friendly.
-- No generic filler; provide concrete details (materials lists, checks, success criteria).
+PBL RULES (ensure these are reflected):
+{pbl_rules}
 
-{style_block}
+STYLE TARGET:
+{exemplar_style}
+
+OUTPUT RULES:
+- Start each module with its heading exactly as listed.
+- Provide a week-aligned milestone schedule spanning {duration_weeks} weeks.
+- Include materials lists and concrete checks for readiness.
+- Keep language teacher-friendly and concise; avoid filler.
+- Do not include any section not listed in the modules.
 """
 
     try:
@@ -158,27 +135,47 @@ Formatting Rules
                 {"role": "user", "content": user_brief},
             ],
         )
-        text = resp.choices[0].message.content
+        body_text = resp.choices[0].message.content
 
-        # Simple HTML wrapping for PDF export
-        safe_title = escape(subject or "PBL Project")
-        html = f"""
-<!doctype html>
+        # ----- PDF layout: cover + summary + body -----
+        safe_title  = escape(title)
+        safe_topic  = escape(topic)
+        safe_grade  = escape(grade)
+        safe_dur    = escape(duration_weeks)
+        safe_dq     = escape(driving_question)
+        safe_scn    = escape(scenario)
+        mod_list    = "".join(f"<li>{escape(m)}</li>" for m in modules)
+
+        html = f"""<!doctype html>
 <html><head><meta charset="utf-8">
 <title>{safe_title}</title>
 <style>
-  body {{ font-family: DejaVu Sans, Arial, sans-serif; font-size: 12pt; }}
-  h1, h2, h3 {{ margin: 0.6em 0 0.3em; }}
+  body {{ font-family: DejaVu Sans, Arial, sans-serif; font-size: 12pt; line-height: 1.35; }}
+  h1, h2 {{ margin: 0.6em 0 0.3em; }}
   h1 {{ font-size: 18pt; }}
-  h2 {{ font-size: 14pt; }}
+  h2 {{ font-size: 14pt; border-bottom: 1px solid #999; padding-bottom: 4px; }}
+  table.summary td {{ padding: 4px 8px; vertical-align: top; }}
+  .muted {{ color: #555; }}
   pre {{ white-space: pre-wrap; }}
-  ul {{ margin-top: 0; }}
+  .pagebreak {{ page-break-before: always; }}
 </style>
 </head><body>
+
 <h1>{safe_title}</h1>
-<pre>{escape(text)}</pre>
-</body></html>
-        """
+<h2>Project Summary</h2>
+<table class="summary">
+  <tr><td><strong>Topic/Subject</strong></td><td>{safe_topic}</td></tr>
+  <tr><td><strong>Grade/Level</strong></td><td>{safe_grade}</td></tr>
+  <tr><td><strong>Duration</strong></td><td>{safe_dur} week(s)</td></tr>
+  <tr><td><strong>Driving Question</strong></td><td>{safe_dq}</td></tr>
+  <tr><td><strong>Scenario</strong></td><td>{safe_scn}</td></tr>
+  <tr><td><strong>Modules</strong></td><td><ul>{mod_list}</ul></td></tr>
+</table>
+
+<div class="pagebreak"></div>
+
+<pre>{escape(body_text)}</pre>
+</body></html>"""
 
         pdf_bytes = html_to_pdf_bytes(html)
         file_id = str(uuid.uuid4())
@@ -186,9 +183,9 @@ Formatting Rules
 
         return jsonify({
             "ok": True,
-            "result": text,
+            "result": body_text,
             "pdf_id": file_id,
-            "pdf_filename": f"{(subject or 'pbl_project').replace(' ', '_')}.pdf"
+            "pdf_filename": f"{title.replace(' ', '_')}.pdf"
         })
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
@@ -199,12 +196,8 @@ def download(file_id):
     pdf = GENERATED.get(file_id)
     if not pdf:
         abort(404)
-    return send_file(
-        io.BytesIO(pdf),
-        mimetype="application/pdf",
-        as_attachment=True,
-        download_name="pbl_project.pdf"
-    )
+    return send_file(io.BytesIO(pdf), mimetype="application/pdf",
+                     as_attachment=True, download_name="pbl_project.pdf")
 
 
 if __name__ == "__main__":
