@@ -5,22 +5,22 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>PBL Project Builder</title>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Arial, sans-serif; max-width: 980px; margin: 32px auto; padding: 0 16px; color: #1f2937; }
-    h1 { margin-bottom: 8px; font-size: 28px; color: #111827; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Arial, sans-serif; max-width: 980px; margin: 32px auto; padding: 0 16px; color: #1f2937; background: #e6f0ff; }
+    h1 { margin-bottom: 8px; font-size: 28px; color: #0f1d5a; }
     .row { display: grid; grid-template-columns: 1fr 2fr; gap: 12px; margin: 10px 0; }
-    textarea, input, button { font: inherit; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; }
+    textarea, input, button { font: inherit; padding: 10px; border: 1px solid #c7d2fe; border-radius: 10px; background: #ffffff; }
     input:focus, textarea:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,.15); }
-    .muted { color: #6b7280; font-size: 0.9em; }
+    .muted { color: #374151; font-size: 0.92em; }
     .actions { display: flex; gap: 10px; align-items: center; margin-top: 8px; }
-    .out { border: 1px solid #e5e7eb; background: #f9fafb; padding: 14px; border-radius: 10px; min-height: 240px; overflow: auto; }
+    .out { border: 1px solid #c7d2fe; background: #f5f7ff; padding: 14px; border-radius: 12px; min-height: 240px; overflow: auto; }
     .out h2 { margin-top: 0.6em; }
-    .pill { display: inline-block; padding: 3px 8px; border-radius: 999px; background: #eef2ff; color: #4338ca; font-size: 12px; margin-right: 6px; }
-    .grid-1 { display: grid; grid-template-columns: 1fr; gap: 8px; }
+    button { background: #0f1d5a; color: #fff; border: none; cursor: pointer; }
+    button:hover { filter: brightness(1.05); }
   </style>
 </head>
 <body>
   <h1>PBL Project Builder</h1>
-  <p class="muted">Enter <strong>Title</strong> and <strong>Topic</strong>. Other fields are optional and have smart defaults. PDF will emphasize prompt details and include relevant equations.</p>
+  <p class="muted">Enter <strong>Title</strong> and <strong>Topic</strong>. Other fields are optional. The PDF has a blue background, a white “paper” card, refined tables, and styled equations.</p>
 
   <div class="row">
     <label>Title *</label>
@@ -49,9 +49,9 @@
   </div>
 
   <div class="row">
-    <label>Scenario</label>
-    <textarea id="scenario" rows="2"
-      placeholder="Default: Partner with a relevant stakeholder to gather constraints and feedback."></textarea>
+    <label>Constraints</label>
+    <textarea id="constraints" rows="2"
+      placeholder="Default: Time, budget, safety, and resource limitations typical for this grade level."></textarea>
   </div>
 
   <div class="row" style="grid-template-columns: 1fr;">
@@ -82,7 +82,7 @@
         grade: el("grade").value,
         duration_weeks: el("duration_weeks").value,
         driving_question: el("driving_question").value,
-        scenario: el("scenario").value
+        constraints: el("constraints").value
       };
 
       el("status").textContent = "Generating…";
@@ -99,8 +99,7 @@
         const data = await resp.json();
         if (!data.ok) throw new Error(data.error || "Unknown error");
 
-        // Show the HTML fragment for quick review
-        el("out").innerHTML = data.result_html;
+        el("out").innerHTML = data.result_html;   // show HTML fragment for review
         el("status").textContent = "Done.";
         if (data.pdf_id) {
           el("dl").href = "/download/" + data.pdf_id;
@@ -115,4 +114,3 @@
   </script>
 </body>
 </html>
-

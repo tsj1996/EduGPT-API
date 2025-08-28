@@ -5,12 +5,10 @@ from xhtml2pdf import pisa
 from markupsafe import escape
 
 # ---------- Azure OpenAI config ----------
-# Expect these env vars in your App Service:
-#   AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, AZURE_OPENAI_API_VERSION (default below), AZURE_OPENAI_DEPLOYMENT
 ENDPOINT   = os.environ["AZURE_OPENAI_ENDPOINT"]
 API_KEY    = os.environ["AZURE_OPENAI_API_KEY"]
 API_VER    = os.environ.get("AZURE_OPENAI_API_VERSION", "2024-10-21")
-DEPLOYMENT = os.environ["AZURE_OPENAI_DEPLOYMENT"]  # your deployment name (e.g., "gpt-4o-mini" or custom)
+DEPLOYMENT = os.environ["AZURE_OPENAI_DEPLOYMENT"]  # deployment name
 
 client = AzureOpenAI(api_key=API_KEY, api_version=API_VER, azure_endpoint=ENDPOINT)
 
@@ -23,7 +21,7 @@ DEFAULTS = {
     "grade": "Grade 10",
     "duration_weeks": "4",
     "driving_question": "How might we design and validate a solution that improves a real-world system?",
-    "scenario": "Partner with a relevant stakeholder to gather constraints and solicit feedback.",
+    "constraints": "Time, budget, safety, and resource limitations typical for this grade level.",
     "pbl_rules": (
         "- Authentic problem & public audience\n"
         "- Student inquiry, iteration, and reflection\n"
@@ -47,8 +45,8 @@ _equation_inline = re.compile(r"\$(.+?)\$", re.DOTALL)     # $ ... $
 
 def decorate_equations(html_fragment: str) -> str:
     """
-    Convert LaTeX-like equations into styled spans/blocks that look good in PDF.
-    (xhtml2pdf cannot render LaTeX; we present equations as monospaced text boxes.)
+    Convert LaTeX-like equations into styled spans/blocks for PDF.
+    (xhtml2pdf cannot typeset LaTeX; we present equations as monospaced chips/blocks.)
     """
     def block_sub(m):
         expr = m.group(1).strip()
@@ -58,20 +56,19 @@ def decorate_equations(html_fragment: str) -> str:
         expr = m.group(1).strip()
         return f"<span class='equation-inline'><code>{escape(expr)}</code></span>"
 
-    # First block equations, then inline
     out = _equation_block.sub(block_sub, html_fragment)
     out = _equation_inline.sub(inline_sub, out)
     return out
 
 
-def build_cover_html(title, topic, grade, duration_weeks, driving_question, scenario):
+def build_cover_html(title, topic, grade, duration_weeks, driving_question, constraints):
     safe = {
         "title": escape(title or "Project"),
         "topic": escape(topic or "—"),
         "grade": escape(grade or "—"),
         "dur": escape(duration_weeks or "—"),
         "dq": escape(driving_question or "—"),
-        "scn": escape(scenario or "—"),
+        "con": escape(constraints or "—"),
     }
     return f"""
 <div class="cover">
@@ -82,7 +79,7 @@ def build_cover_html(title, topic, grade, duration_weeks, driving_question, scen
     <tr><th>Grade/Level</th><td>{safe['grade']}</td></tr>
     <tr><th>Duration</th><td>{safe['dur']} week(s)</td></tr>
     <tr><th>Driving Question</th><td>{safe['dq']}</td></tr>
-    <tr><th>Scenario</th><td>{safe['scn']}</td></tr>
+    <tr><th>Constraints</th><td>{safe['con']}</td></tr>
   </table>
 </div>
 <div class="pagebreak"></div>
@@ -97,33 +94,50 @@ def build_shell_html(cover_html: str, body_html: str) -> str:
 <meta charset="utf-8" />
 <title>Project Brief</title>
 <style>
-  /* Page layout & typography (xhtml2pdf-safe CSS) */
-  body {{ font-family: DejaVu Sans, Arial, sans-serif; font-size: 11.5pt; line-height: 1.45; margin: 0.8in; color: #222; }}
-  h1 {{ font-size: 22pt; margin: 0.1em 0 0.2em; text-align: center; color: #1a2855; }}
-  h2 {{ font-size: 15pt; border-bottom: 1px solid #999; padding-bottom: 4px; margin-top: 1.1em; color: #1a2855; }}
-  h3 {{ font-size: 12.5pt; margin-top: 0.9em; color: #2b3e7a; }}
+  /* Overall blue background */
+  body {{
+    background: #e6f0ff; /* light blue */
+    font-family: DejaVu Sans, Arial, sans-serif;
+    font-size: 11.5pt; line-height: 1.45; margin: 0; color: #223;
+  }}
+  /* Paper card */
+  .paper {{
+    background: #ffffff;
+    margin: 0.6in auto;
+    width: 7.5in;
+    padding: 0.8in;
+    border: 1px solid #c9cfdf;
+  }}
+
+  /* Typography */
+  h1 {{ font-size: 22pt; margin: 0.1em 0 0.2em; text-align: center; color: #0f1d5a; }}
+  h2 {{ font-size: 15pt; border-bottom: 1px solid #9fb2e6; padding-bottom: 4px; margin-top: 1.1em; color: #0f1d5a; }}
+  h3 {{ font-size: 12.5pt; margin-top: 0.9em; color: #1d2f7a; }}
   p  {{ margin: 0.4em 0; }}
   ul, ol {{ margin: 0.4em 0 0.4em 1.2em; }}
+
+  /* Tables */
   table {{ border-collapse: collapse; width: 100%; margin: 0.6em 0; }}
-  th, td {{ border: 1px solid #666; padding: 6px; text-align: left; vertical-align: top; }}
+  th, td {{ border: 1px solid #aab7e6; padding: 6px; text-align: left; vertical-align: top; }}
+  thead th {{ background: #edf2ff; color: #0f1d5a; }}
+  .meta {{ margin: 0.35in auto 0; width: 85%; }}
+  .meta th {{ width: 28%; background: #edf2ff; color: #0f1d5a; }}
 
   /* Cover */
-  .cover {{ text-align: center; margin: 0 auto 0.2in; }}
-  .brandbar {{ height: 10px; background: #1a2855; margin-bottom: 12px; }}
-  .meta {{ margin: 0.4in auto 0; width: 85%; }}
-  .meta th {{ width: 28%; background: #f2f4fa; color: #1a2855; }}
+  .cover {{ text-align: center; margin: 0 auto 0.15in; }}
+  .brandbar {{ height: 12px; background: #0f1d5a; margin-bottom: 14px; }}
 
   /* Info boxes */
   .box {{ border: 1px solid #c9cfdf; background: #f5f7fc; padding: 10px; margin: 0.7em 0; }}
   .muted {{ color: #555; }}
 
-  /* Equation presentation (monospace blocks/spans) */
+  /* Equation presentation */
   code {{ font-family: "DejaVu Sans Mono", monospace; font-size: 10.5pt; }}
   .equation-block {{
-    border: 1px solid #b8c1e0; background: #eef2ff; padding: 8px; margin: 8px 0;
+    border: 1px solid #7ea0ff; background: #eef3ff; padding: 8px; margin: 8px 0;
   }}
   .equation-inline {{
-    border: 1px solid #d6dcef; background: #f3f6ff; padding: 1px 3px;
+    border: 1px solid #c8d6ff; background: #f4f7ff; padding: 1px 3px;
   }}
 
   /* Page breaks */
@@ -131,8 +145,10 @@ def build_shell_html(cover_html: str, body_html: str) -> str:
 </style>
 </head>
 <body>
-{cover_html}
-{body_html}
+  <div class="paper">
+    {cover_html}
+    {body_html}
+  </div>
 </body>
 </html>"""
 
@@ -157,10 +173,10 @@ def generate():
     grade            = (data.get("grade") or DEFAULTS["grade"]).strip()
     duration_weeks   = (data.get("duration_weeks") or DEFAULTS["duration_weeks"]).strip()
     driving_question = (data.get("driving_question") or DEFAULTS["driving_question"]).strip()
-    scenario         = (data.get("scenario") or DEFAULTS["scenario"]).strip()
+    constraints      = (data.get("constraints") or DEFAULTS["constraints"]).strip()
     pbl_rules        = DEFAULTS["pbl_rules"]
 
-    # ---------- Strong, style-focused prompt (less schedule, more prompt detail + equations) ----------
+    # Strong, style-focused prompt (less schedule, more prompt detail + equations)
     system_prompt = (
         "You are a precise PBL assignment writer. Produce a professional, teacher-ready project handout "
         "in clean HTML (BODY FRAGMENT ONLY). Use <h2>, <h3>, <p>, <ul>, <ol>, <table>, <thead>, <tbody>, "
@@ -177,7 +193,7 @@ PROJECT BRIEF INPUTS
 - Grade/Level: {grade}
 - Duration: {duration_weeks} weeks
 - Driving Question: {driving_question}
-- Scenario: {scenario}
+- Constraints: {constraints}
 
 PBL RULES TO REFLECT
 {pbl_rules}
@@ -211,14 +227,13 @@ STYLE & CONTENT RULES
                 {"role": "user", "content": user_brief},
             ],
         )
-        fragment = resp.choices[0].message.content or ""
-        fragment = fragment.strip()
+        fragment = (resp.choices[0].message.content or "").strip()
 
         # Decorate equations for nicer PDF presentation
         fragment = decorate_equations(fragment)
 
-        # Build final HTML
-        cover_html = build_cover_html(title, topic, grade, duration_weeks, driving_question, scenario)
+        # Build final HTML (blue background outside, white “paper” card inside)
+        cover_html = build_cover_html(title, topic, grade, duration_weeks, driving_question, constraints)
         full_html  = build_shell_html(cover_html, fragment)
 
         pdf_bytes = html_to_pdf_bytes(full_html)
@@ -227,7 +242,7 @@ STYLE & CONTENT RULES
 
         return jsonify({
             "ok": True,
-            "result_html": fragment,  # show in UI preview
+            "result_html": fragment,  # preview in UI
             "pdf_id": file_id,
             "pdf_filename": f"{title.replace(' ', '_')}.pdf"
         })
@@ -240,8 +255,12 @@ def download(file_id):
     pdf = GENERATED.get(file_id)
     if not pdf:
         abort(404)
-    return send_file(io.BytesIO(pdf), mimetype="application/pdf",
-                     as_attachment=True, download_name="project_brief.pdf")
+    return send_file(
+        io.BytesIO(pdf),
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name="project_brief.pdf"
+    )
 
 
 if __name__ == "__main__":

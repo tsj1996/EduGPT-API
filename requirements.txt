@@ -5,3 +5,4 @@ python-dotenv==1.0.1
 gunicorn>=23.0.0
 xhtml2pdf==0.2.15   # PDF generation
 reportlab>=3.6.12   # required by xhtml2pdf
+markupsafe
