@@ -98,7 +98,7 @@ def generate_pdf():
         messages=[{"role":"system","content":system_msg},
                   {"role":"user","content":user_msg}],
         temperature=0.7,
-        max_tokens=2000,
+        max_completion_tokens=2000,
     )
     md_text = resp.choices[0].message.content or "# (no content)"
 
