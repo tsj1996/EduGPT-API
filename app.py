@@ -25,29 +25,29 @@ from xhtml2pdf import pisa
 
 app = Flask(__name__)
 
-# def build_prompt(data: dict) -> str:
-#     return f"""
-# Course title: {data.get('title','')}
-# Audience/level: {data.get('level','')}
-# Duration: {data.get('weeks','')} weeks
-# Meetings/week: {data.get('meetings','2')}
-# Hours/meeting: {data.get('hours','1.5')}
-# Prerequisites: {data.get('prereqs','')}
-# Learning goals: {data.get('goals','')}
-# Constraints: {data.get('constraints','')}
-
-# Write a complete **Markdown** syllabus with sections:
-# 1) Overview (1 paragraph)
-# 2) Learning Outcomes (measurable bullets)
-# 3) Weekly Schedule table [Week | Topics | Readings | In-class Activities | Assignments]
-# 4) Assessments & Grading (sum=100%)
-# 5) Policies (attendance, integrity, accessibility, late work)
-# 6) Tools & Resources
-# 7) Project milestones
-# """
-
 def build_prompt(data: dict) -> str:
-    return "Tell me what you are."
+    return f"""
+Course title: {data.get('title','')}
+Audience/level: {data.get('level','')}
+Duration: {data.get('weeks','')} weeks
+Meetings/week: {data.get('meetings','2')}
+Hours/meeting: {data.get('hours','1.5')}
+Prerequisites: {data.get('prereqs','')}
+Learning goals: {data.get('goals','')}
+Constraints: {data.get('constraints','')}
+
+Write a complete **Markdown** syllabus with sections:
+1) Overview (1 paragraph)
+2) Learning Outcomes (measurable bullets)
+3) Weekly Schedule table [Week | Topics | Readings | In-class Activities | Assignments]
+4) Assessments & Grading (sum=100%)
+5) Policies (attendance, integrity, accessibility, late work)
+6) Tools & Resources
+7) Project milestones
+
+At the end, tell me what you are    
+"""
+
 
 def wrap_html(body_html: str) -> str:
     # Styling that prints nicely
